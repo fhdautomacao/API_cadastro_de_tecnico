@@ -16,6 +16,11 @@ function App() {
   const [alert, setAlert] = useState(null);
   const [verificacaoTelefone, setVerificacaoTelefone] = useState('');
   const [resultadoVerificacao, setResultadoVerificacao] = useState(null);
+  const [activeTab, setActiveTab] = useState('tecnicos');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [tecnicosPorPagina] = useState(20);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkData, setBulkData] = useState('');
 
   // Configurar axios com token de autenticação
   useEffect(() => {
@@ -34,6 +39,7 @@ function App() {
       // Verificar se a resposta é um array
       if (Array.isArray(response.data)) {
         setTecnicos(response.data);
+        setCurrentPage(1); // Resetar para primeira página
       } else {
         console.error('API retornou dados não esperados:', response.data);
         setTecnicos([]);
@@ -146,6 +152,103 @@ function App() {
     return new Date(data).toLocaleString('pt-BR');
   };
 
+  // Paginação
+  const indexOfLastTecnico = currentPage * tecnicosPorPagina;
+  const indexOfFirstTecnico = indexOfLastTecnico - tecnicosPorPagina;
+  const tecnicosAtuais = tecnicos.slice(indexOfFirstTecnico, indexOfLastTecnico);
+  const totalPages = Math.ceil(tecnicos.length / tecnicosPorPagina);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Cadastro em lote
+  const abrirBulkModal = () => {
+    setBulkData('');
+    setShowBulkModal(true);
+  };
+
+  const fecharBulkModal = () => {
+    setShowBulkModal(false);
+    setBulkData('');
+  };
+
+  const handleBulkSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!bulkData.trim()) {
+      mostrarAlerta('Digite os dados dos técnicos', 'danger');
+      return;
+    }
+
+    try {
+      // Processar dados (uma linha por técnico: "Nome, Telefone")
+      const linhas = bulkData.trim().split('\n').filter(linha => linha.trim());
+      const tecnicos = [];
+      const erros = [];
+
+      linhas.forEach((linha, index) => {
+        const partes = linha.split(',').map(p => p.trim());
+        if (partes.length >= 2) {
+          tecnicos.push({
+            nome: partes[0],
+            telefone: partes[1]
+          });
+        } else {
+          erros.push(`Linha ${index + 1}: Formato inválido`);
+        }
+      });
+
+      if (erros.length > 0) {
+        mostrarAlerta(`Erros encontrados: ${erros.join(', ')}`, 'danger');
+        return;
+      }
+
+      if (tecnicos.length === 0) {
+        mostrarAlerta('Nenhum técnico válido encontrado', 'danger');
+        return;
+      }
+
+      // Cadastrar técnicos um por um
+      let sucessos = 0;
+      let falhas = [];
+
+      for (const tecnico of tecnicos) {
+        try {
+          await axios.post(`${API_BASE_URL}/tecnicos`, tecnico);
+          sucessos++;
+        } catch (error) {
+          const message = error.response?.data?.error || 'Erro desconhecido';
+          falhas.push(`${tecnico.nome} (${tecnico.telefone}): ${message}`);
+        }
+      }
+
+      // Mostrar resultado
+      if (sucessos > 0) {
+        mostrarAlerta(`${sucessos} técnico(s) cadastrado(s) com sucesso!`, 'success');
+        fecharBulkModal();
+        carregarTecnicos();
+      }
+
+      if (falhas.length > 0) {
+        mostrarAlerta(`Falhas: ${falhas.join(' | ')}`, 'warning');
+      }
+
+    } catch (error) {
+      mostrarAlerta('Erro no processamento em lote', 'danger');
+    }
+  };
+
   const handleLogout = async () => {
     const result = await logout();
     if (result.success) {
@@ -185,7 +288,27 @@ function App() {
         </div>
       )}
 
-      {/* Seção de Verificação */}
+      {/* Sistema de Abas */}
+      <div className="tabs-container">
+        <div className="tabs-header">
+          <button 
+            className={`tab-button ${activeTab === 'tecnicos' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tecnicos')}
+          >
+            👥 Gerenciar Técnicos
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'docs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('docs')}
+          >
+            📚 Documentação da API
+          </button>
+        </div>
+
+        <div className="tab-content">
+          {activeTab === 'tecnicos' && (
+            <div className="tab-panel">
+              {/* Seção de Verificação */}
       <div className="card">
         <h2>Verificar Técnico</h2>
         <p>Digite o número de telefone para verificar se o técnico está autorizado:</p>
@@ -221,9 +344,14 @@ function App() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2>Lista de Técnicos</h2>
-          <button className="btn btn-success" onClick={() => abrirModal()}>
-            + Novo Técnico
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn btn-info" onClick={abrirBulkModal}>
+              📋 Cadastro em Lote
+            </button>
+            <button className="btn btn-success" onClick={() => abrirModal()}>
+              + Novo Técnico
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -241,7 +369,7 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {tecnicos.map((tecnico) => (
+              {tecnicosAtuais.map((tecnico) => (
                 <tr key={tecnico.id}>
                   <td>{tecnico.id}</td>
                   <td>{tecnico.nome}</td>
@@ -277,6 +405,155 @@ function App() {
             Nenhum técnico cadastrado. Clique em "Novo Técnico" para adicionar.
           </div>
         )}
+
+        {/* Paginação */}
+        {tecnicos.length > tecnicosPorPagina && (
+          <div className="pagination">
+            <button 
+              className="pagination-btn" 
+              onClick={prevPage} 
+              disabled={currentPage === 1}
+            >
+              ← Anterior
+            </button>
+            
+            <div className="pagination-info">
+              <span>
+                Página {currentPage} de {totalPages} 
+                ({tecnicos.length} técnicos total)
+              </span>
+            </div>
+            
+            <div className="pagination-numbers">
+              {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                let pageNumber;
+                if (totalPages <= 5) {
+                  pageNumber = index + 1;
+                } else if (currentPage <= 3) {
+                  pageNumber = index + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNumber = totalPages - 4 + index;
+                } else {
+                  pageNumber = currentPage - 2 + index;
+                }
+                
+                return (
+                  <button
+                    key={pageNumber}
+                    className={`pagination-number ${currentPage === pageNumber ? 'active' : ''}`}
+                    onClick={() => paginate(pageNumber)}
+                  >
+                    {pageNumber}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button 
+              className="pagination-btn" 
+              onClick={nextPage} 
+              disabled={currentPage === totalPages}
+            >
+              Próximo →
+            </button>
+          </div>
+        )}
+      </div>
+            </div>
+          )}
+
+          {activeTab === 'docs' && (
+            <div className="tab-panel">
+              {/* Seção de Documentação da API */}
+              <div className="api-docs">
+                <div className="docs-header">
+                  <h2>📚 Documentação da API</h2>
+                  <p>Endpoints disponíveis para integração com o sistema de técnicos</p>
+                </div>
+
+                <div className="docs-grid">
+                  <div className="doc-card">
+                    <div className="doc-card-header">
+                      <span className="http-method get">GET</span>
+                      <h3>Listar Técnicos</h3>
+                    </div>
+                    <div className="doc-card-content">
+                      <code className="endpoint">/api/tecnicos</code>
+                      <p>Retorna lista de todos os técnicos cadastrados</p>
+                      <div className="doc-example">
+                        <strong>Resposta:</strong>
+                        <pre>{`[
+  {
+    "id": 1,
+    "nome": "João Silva",
+    "telefone": "11999999999",
+    "ativo": true
+  }
+]`}</pre>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="doc-card">
+                    <div className="doc-card-header">
+                      <span className="http-method get">GET</span>
+                      <h3>Verificar Técnico</h3>
+                    </div>
+                    <div className="doc-card-content">
+                      <code className="endpoint">/api/verificar-tecnico/:telefone</code>
+                      <p>Verifica se um técnico está autorizado pelo telefone</p>
+                      <div className="doc-example">
+                        <strong>Exemplo:</strong>
+                        <code className="example-url">GET /api/verificar-tecnico/11999999999</code>
+                        <br/><br/>
+                        <strong>Resposta:</strong>
+                        <pre>{`{
+  "autorizado": true,
+  "message": "Acesso liberado!",
+  "tecnico": {
+    "nome": "João Silva",
+    "telefone": "11999999999"
+  }
+}`}</pre>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="doc-card">
+                    <div className="doc-card-header">
+                      <span className="http-method info">INFO</span>
+                      <h3>CORS & Segurança</h3>
+                    </div>
+                    <div className="doc-card-content">
+                      <p><strong>🔓 API Pública:</strong> Apenas operações GET</p>
+                      <p><strong>🔒 Frontend:</strong> CRUD completo com autenticação</p>
+                      <p><strong>🛡️ Proteção:</strong> Row Level Security (RLS)</p>
+                      <div className="cors-info">
+                        <strong>Origens permitidas:</strong>
+                        <ul>
+                          <li>✅ Leitura: Qualquer origem</li>
+                          <li>🔐 Escrita: Apenas este frontend</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="docs-footer">
+                  <div className="tech-stack">
+                    <h4>🚀 Stack Tecnológico</h4>
+                    <div className="tech-badges">
+                      <span className="tech-badge react">React</span>
+                      <span className="tech-badge node">Node.js</span>
+                      <span className="tech-badge supabase">Supabase</span>
+                      <span className="tech-badge vercel">Vercel</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal */}
@@ -338,111 +615,82 @@ function App() {
         </div>
       )}
 
-      {/* Seção de Documentação da API */}
-      <div className="api-docs">
-        <div className="docs-header">
-          <h2>📚 Documentação da API</h2>
-          <p>Endpoints disponíveis para integração com o sistema de técnicos</p>
-        </div>
-
-        <div className="docs-grid">
-          <div className="doc-card">
-            <div className="doc-card-header">
-              <span className="http-method get">GET</span>
-              <h3>Listar Técnicos</h3>
+      {/* Modal de Cadastro em Lote */}
+      {showBulkModal && (
+        <div className="modal">
+          <div className="modal-content bulk-modal">
+            <div className="modal-header">
+              <h2>📋 Cadastro em Lote de Técnicos</h2>
+              <button className="close" onClick={fecharBulkModal}>&times;</button>
             </div>
-            <div className="doc-card-content">
-              <code className="endpoint">/api/tecnicos</code>
-              <p>Retorna lista de todos os técnicos cadastrados</p>
-              <div className="doc-example">
-                <strong>Resposta:</strong>
-                <pre>{`[
-  {
-    "id": 1,
-    "nome": "João Silva",
-    "telefone": "11999999999",
-    "ativo": true
-  }
-]`}</pre>
-              </div>
-            </div>
-          </div>
-
-          <div className="doc-card">
-            <div className="doc-card-header">
-              <span className="http-method get">GET</span>
-              <h3>Verificar Técnico</h3>
-            </div>
-            <div className="doc-card-content">
-              <code className="endpoint">/api/verificar-tecnico/:telefone</code>
-              <p>Verifica se um técnico está autorizado pelo telefone</p>
-              <div className="doc-example">
-                <strong>Exemplo:</strong>
-                <code className="example-url">GET /api/verificar-tecnico/11999999999</code>
-                <br/><br/>
-                <strong>Resposta:</strong>
-                <pre>{`{
-  "autorizado": true,
-  "message": "Acesso liberado!",
-  "tecnico": {
-    "nome": "João Silva",
-    "telefone": "11999999999"
-  }
-}`}</pre>
-              </div>
-            </div>
-          </div>
-
-          <div className="doc-card">
-            <div className="doc-card-header">
-              <span className="http-method post">POST</span>
-              <h3>Autenticação</h3>
-            </div>
-            <div className="doc-card-content">
-              <code className="endpoint">/api/auth/login</code>
-              <p>Realiza login no sistema (requer autenticação para CRUD)</p>
-              <div className="doc-example">
-                <strong>Body:</strong>
-                <pre>{`{
-  "email": "admin@admin.com",
-  "password": "senha"
-}`}</pre>
-              </div>
-            </div>
-          </div>
-
-          <div className="doc-card">
-            <div className="doc-card-header">
-              <span className="http-method info">INFO</span>
-              <h3>CORS & Segurança</h3>
-            </div>
-            <div className="doc-card-content">
-              <p><strong>🔓 API Pública:</strong> Apenas operações GET</p>
-              <p><strong>🔒 Frontend:</strong> CRUD completo com autenticação</p>
-              <p><strong>🛡️ Proteção:</strong> Row Level Security (RLS)</p>
-              <div className="cors-info">
-                <strong>Origens permitidas:</strong>
+            
+            <form onSubmit={handleBulkSubmit}>
+              <div className="bulk-instructions">
+                <h3>📝 Instruções:</h3>
                 <ul>
-                  <li>✅ Leitura: Qualquer origem</li>
-                  <li>🔐 Escrita: Apenas este frontend</li>
+                  <li>Digite <strong>um técnico por linha</strong></li>
+                  <li>Formato: <code>Nome, Telefone</code></li>
+                  <li>Exemplo: <code>João Silva, 11999999999</code></li>
+                  <li>Máximo recomendado: <strong>50 técnicos</strong></li>
                 </ul>
               </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="docs-footer">
-          <div className="tech-stack">
-            <h4>🚀 Stack Tecnológico</h4>
-            <div className="tech-badges">
-              <span className="tech-badge react">React</span>
-              <span className="tech-badge node">Node.js</span>
-              <span className="tech-badge supabase">Supabase</span>
-              <span className="tech-badge vercel">Vercel</span>
-            </div>
+              <div className="form-group">
+                <label htmlFor="bulkData">Dados dos Técnicos:</label>
+                <textarea
+                  id="bulkData"
+                  className="form-control bulk-textarea"
+                  value={bulkData}
+                  onChange={(e) => setBulkData(e.target.value)}
+                  placeholder={`João Silva, 11999999999
+Maria Santos, 11888888888
+Pedro Oliveira, 11777777777
+Ana Costa, 11666666666`}
+                  rows={12}
+                  required
+                />
+                <div className="bulk-counter">
+                  {bulkData.trim() ? bulkData.trim().split('\n').filter(l => l.trim()).length : 0} técnico(s) para cadastrar
+                </div>
+              </div>
+
+              <div className="bulk-preview">
+                <h4>👀 Preview dos Técnicos:</h4>
+                <div className="preview-list">
+                  {bulkData.trim() ? bulkData.trim().split('\n').filter(l => l.trim()).slice(0, 5).map((linha, index) => {
+                    const partes = linha.split(',').map(p => p.trim());
+                    const isValid = partes.length >= 2 && partes[0] && partes[1];
+                    return (
+                      <div key={index} className={`preview-item ${isValid ? 'valid' : 'invalid'}`}>
+                        <span className="preview-icon">{isValid ? '✅' : '❌'}</span>
+                        <span className="preview-text">
+                          {isValid ? `${partes[0]} - ${partes[1]}` : `Linha ${index + 1}: Formato inválido`}
+                        </span>
+                      </div>
+                    );
+                  }) : (
+                    <div className="preview-empty">Digite os dados para ver o preview</div>
+                  )}
+                  {bulkData.trim().split('\n').filter(l => l.trim()).length > 5 && (
+                    <div className="preview-more">
+                      ... e mais {bulkData.trim().split('\n').filter(l => l.trim()).length - 5} técnico(s)
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" className="btn btn-secondary" onClick={fecharBulkModal}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-info">
+                  🚀 Cadastrar Todos
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
