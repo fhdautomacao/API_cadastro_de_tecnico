@@ -22,8 +22,6 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(path.join(__dirname, 'frontend/build')));
-
 // Configurar conexão com PostgreSQL (Supabase)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -266,10 +264,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
   res.json({ user: req.user });
 });
 
-// Servir aplicação React
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
-});
+// A Vercel serve os arquivos estáticos do frontend
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);

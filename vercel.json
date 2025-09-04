@@ -1,7 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
   "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    },
     {
       "src": "server.js",
       "use": "@vercel/node"
@@ -14,7 +20,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/server.js"
+      "dest": "/frontend/build/$1"
     }
   ],
   "env": {
