@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -26,13 +26,7 @@ function App() {
     }
   }, [token]);
 
-  useEffect(() => {
-    if (user) {
-      carregarTecnicos();
-    }
-  }, [user]);
-
-  const carregarTecnicos = async () => {
+  const carregarTecnicos = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/tecnicos`);
@@ -47,7 +41,13 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL, logout]);
+
+  useEffect(() => {
+    if (user) {
+      carregarTecnicos();
+    }
+  }, [user, carregarTecnicos]);
 
   const mostrarAlerta = (message, type) => {
     setAlert({ message, type });
