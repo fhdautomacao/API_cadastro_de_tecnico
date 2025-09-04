@@ -42,13 +42,29 @@ const authenticateToken = async (token) => {
 };
 
 module.exports = async (req, res) => {
-  // Configurar CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const origin = req.headers.origin;
+  const isFromFrontend = origin === 'https://api-cadastro-de-tecnico.vercel.app';
+  
+  // Configurar CORS baseado na origem
+  if (isFromFrontend) {
+    // Frontend: Permite GET e POST
+    res.setHeader('Access-Control-Allow-Origin', 'https://api-cadastro-de-tecnico.vercel.app');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  } else {
+    // API externa: Permite apenas GET
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Verificar se a operação é permitida para a origem
+  if (!isFromFrontend && (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE')) {
+    return res.status(403).json({ error: 'Operação não permitida para esta origem' });
   }
 
   // Parse JSON body

@@ -27,10 +27,21 @@ const authenticateToken = async (token) => {
 
 // Função principal da API
 module.exports = async (req, res) => {
-  // Configurar CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const origin = req.headers.origin;
+  const isFromFrontend = origin === 'https://api-cadastro-de-tecnico.vercel.app';
+  
+  // Configurar CORS baseado na origem
+  if (isFromFrontend) {
+    // Frontend: Permite GET, POST, PUT, DELETE
+    res.setHeader('Access-Control-Allow-Origin', 'https://api-cadastro-de-tecnico.vercel.app');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  } else {
+    // API externa: Permite apenas GET
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
 
   // Configurar headers de segurança
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co;");
@@ -42,6 +53,11 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
+  }
+
+  // Verificar se a operação é permitida para a origem
+  if (!isFromFrontend && (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE')) {
+    return res.status(403).json({ error: 'Operação não permitida para esta origem' });
   }
 
   // Parse JSON body para requests POST/PUT
