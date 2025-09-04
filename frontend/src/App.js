@@ -41,7 +41,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE_URL, logout]);
+  }, [logout]);
 
   useEffect(() => {
     if (user) {
