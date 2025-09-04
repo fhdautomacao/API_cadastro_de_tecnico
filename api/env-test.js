@@ -12,6 +12,8 @@ module.exports = async (req, res) => {
     hasSupabaseUrl: !!process.env.SUPABASE_URL,
     hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
     supabaseUrlLength: process.env.SUPABASE_URL?.length || 0,
-    supabaseKeyLength: process.env.SUPABASE_ANON_KEY?.length || 0
+    supabaseKeyLength: process.env.SUPABASE_ANON_KEY?.length || 0,
+    supabaseUrlStart: process.env.SUPABASE_URL?.substring(0, 20) || 'não configurada',
+    nodeEnv: process.env.NODE_ENV || 'não definido'
   });
 };

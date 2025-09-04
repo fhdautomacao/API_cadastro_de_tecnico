@@ -49,18 +49,10 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Verificar autenticação para rotas protegidas
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    const auth = await authenticateToken(token);
-    
-    if (auth.error) {
-      return res.status(auth.status).json({ error: auth.error });
-    }
-
     const { method, url } = req;
 
     if (method === 'GET') {
+      // Teste sem autenticação primeiro
       console.log('Buscando técnicos...');
       const { data: tecnicos, error } = await supabase
         .from('tecnicos')
@@ -77,6 +69,15 @@ module.exports = async (req, res) => {
     }
 
     if (method === 'POST') {
+      // Verificar autenticação para POST
+      const authHeader = req.headers['authorization'];
+      const token = authHeader && authHeader.split(' ')[1];
+      const auth = await authenticateToken(token);
+      
+      if (auth.error) {
+        return res.status(auth.status).json({ error: auth.error });
+      }
+
       console.log('Criando técnico...');
       const { nome, telefone } = req.body;
       console.log('Dados recebidos:', { nome, telefone });
