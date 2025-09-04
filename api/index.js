@@ -54,6 +54,44 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
+// Endpoint para verificar se técnico pode usar chatbot
+app.get('/api/verificar-tecnico/:telefone', async (req, res) => {
+  const { telefone } = req.params;
+  
+  try {
+    const result = await pool.query(
+      'SELECT * FROM tecnicos WHERE telefone = $1 AND ativo = true',
+      [telefone]
+    );
+    
+    if (result.rows.length > 0) {
+      const tecnico = result.rows[0];
+      res.status(200).json({ 
+        autorizado: true, 
+        tecnico: { 
+          nome: tecnico.nome, 
+          telefone: tecnico.telefone
+        },
+        message: `✅ Acesso liberado! Olá ${tecnico.nome}, você está autorizado a usar o chatbot.`,
+        status: 200
+      });
+    } else {
+      res.status(205).json({ 
+        autorizado: false, 
+        message: '❌ Acesso negado! Seu número não está cadastrado ou está inativo no sistema. Entre em contato com o administrador.',
+        status: 205
+      });
+    }
+  } catch (err) {
+    console.error('Erro ao verificar técnico:', err);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      message: '⚠️ Erro temporário no sistema. Tente novamente em alguns instantes.',
+      status: 500
+    });
+  }
+});
+
 // CRUD de técnicos (protegido com autenticação)
 // Listar todos os técnicos
 app.get('/api/tecnicos', authenticateToken, async (req, res) => {
@@ -162,4 +200,63 @@ app.delete('/api/tecnicos/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Endpoint para listar roles disponíveis (hardcoded)
+app.get('/api/roles', (req, res) => {
+  const roles = [
+    { nome: 'admin', descricao: 'Administrador do sistema - acesso total' },
+    { nome: 'tecnico', descricao: 'Técnico autorizado - acesso ao chatbot' },
+    { nome: 'supervisor', descricao: 'Supervisor de técnicos - pode gerenciar técnicos' }
+  ];
+  res.json(roles);
+});
+
+// Endpoints de autenticação
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+  }
+  
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+    
+    res.json({
+      user: data.user,
+      session: data.session,
+      message: 'Login realizado com sucesso'
+    });
+  } catch (err) {
+    console.error('Erro no login:', err);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      return res.status(500).json({ error: 'Erro ao fazer logout' });
+    }
+    
+    res.json({ message: 'Logout realizado com sucesso' });
+  } catch (err) {
+    console.error('Erro no logout:', err);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+  res.json({ user: req.user });
+});
+
+// Exportar o app para a Vercel
 module.exports = app;
