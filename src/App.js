@@ -21,6 +21,7 @@ function App() {
   const [tecnicosPorPagina] = useState(20);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkData, setBulkData] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Configurar axios com token de autenticação
   useEffect(() => {
@@ -118,6 +119,7 @@ function App() {
       try {
         await axios.delete(`${API_BASE_URL}/tecnicos/${id}`);
         mostrarAlerta('Técnico deletado com sucesso!', 'success');
+        setSelectedIds((prev) => prev.filter((x) => x !== id));
         carregarTecnicos();
       } catch (error) {
         mostrarAlerta('Erro ao deletar técnico', 'danger');
@@ -148,9 +150,7 @@ function App() {
     }
   };
 
-  const formatarData = (data) => {
-    return new Date(data).toLocaleString('pt-BR');
-  };
+  const formatarData = (data) => new Date(data).toLocaleString('pt-BR');
 
   // Paginação
   const indexOfLastTecnico = currentPage * tecnicosPorPagina;
@@ -161,14 +161,38 @@ function App() {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
 
   const prevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
+  // Seleção & exclusão em lote
+  const isAllSelected = tecnicosAtuais.length > 0 && tecnicosAtuais.every((t) => selectedIds.includes(t.id));
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      const pageIds = tecnicosAtuais.map((t) => t.id);
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      const pageIds = tecnicosAtuais.map((t) => t.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+  const toggleSelect = (id) => setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const bulkDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Tem certeza que deseja deletar ${selectedIds.length} técnico(s)?`)) return;
+    try {
+      const results = await Promise.allSettled(selectedIds.map((id) => axios.delete(`${API_BASE_URL}/tecnicos/${id}`)));
+      const sucesso = results.filter((r) => r.status === 'fulfilled').length;
+      const falhas = results.length - sucesso;
+      if (sucesso > 0) mostrarAlerta(`${sucesso} técnico(s) deletado(s) com sucesso!`, 'success');
+      if (falhas > 0) mostrarAlerta(`${falhas} deleção(ões) falharam.`, 'warning');
+      setSelectedIds([]);
+      carregarTecnicos();
+    } catch {
+      mostrarAlerta('Erro ao deletar técnicos selecionados', 'danger');
     }
   };
 
@@ -371,7 +395,13 @@ function App() {
             <tbody>
               {tecnicosAtuais.map((tecnico) => (
                 <tr key={tecnico.id}>
-                  <td>{tecnico.id}</td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(tecnico.id)}
+                      onChange={() => toggleSelect(tecnico.id)}
+                    />
+                  </td>
                   <td>{tecnico.nome}</td>
                   <td>{tecnico.telefone}</td>
                   <td>
@@ -455,6 +485,18 @@ function App() {
               disabled={currentPage === totalPages}
             >
               Próximo →
+            </button>
+          </div>
+        )}
+
+        {/* Botões de Ação em Lote */}
+        {selectedIds.length > 0 && (
+          <div className="bulk-actions">
+            <button className="btn btn-danger" onClick={bulkDeleteSelected}>
+              🗑️ Deletar Todos Selecionados ({selectedIds.length})
+            </button>
+            <button className="btn btn-info" onClick={toggleSelectAll}>
+              {isAllSelected ? 'Desmarcar Todos' : 'Marcar Todos'}
             </button>
           </div>
         )}
