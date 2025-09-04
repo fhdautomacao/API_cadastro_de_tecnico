@@ -7,16 +7,20 @@
       "config": {
         "distDir": "build"
       }
-    },
-    {
-      "src": "api/server.js",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/server.js"
+      "src": "/api/tecnicos(.*)",
+      "dest": "/api/tecnicos.js"
+    },
+    {
+      "src": "/api/verificar-tecnico/(.*)",
+      "dest": "/api/verificar-tecnico.js"
+    },
+    {
+      "src": "/api/auth/(.*)",
+      "dest": "/api/auth.js"
     },
     {
       "src": "/static/(.*)",
