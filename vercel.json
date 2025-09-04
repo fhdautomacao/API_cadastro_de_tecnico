@@ -23,7 +23,11 @@
       "dest": "/api/env-test.js"
     },
     {
-      "src": "/api/tecnicos",
+      "src": "/api/debug-auth",
+      "dest": "/api/debug-auth.js"
+    },
+    {
+      "src": "/api/tecnicos$",
       "dest": "/api/tecnicos.js"
     },
     {

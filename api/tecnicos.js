@@ -52,8 +52,8 @@ module.exports = async (req, res) => {
     const { method, url } = req;
 
     if (method === 'GET') {
-      // Teste sem autenticação primeiro
-      console.log('Buscando técnicos...');
+      // GET público - sem autenticação necessária
+      console.log('Buscando técnicos (acesso público)...');
       const { data: tecnicos, error } = await supabase
         .from('tecnicos')
         .select('*')

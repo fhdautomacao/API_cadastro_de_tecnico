@@ -141,16 +141,16 @@ module.exports = async (req, res) => {
       return res.json({ message: 'Logout realizado com sucesso' });
     }
 
-    // Rotas protegidas - verificar autenticação
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    const auth = await authenticateToken(token);
-    
-    if (auth.error) {
-      return res.status(auth.status).json({ error: auth.error });
-    }
-
+    // Rota protegida específica - /auth/me
     if (method === 'GET' && path === '/auth/me') {
+      const authHeader = req.headers['authorization'];
+      const token = authHeader && authHeader.split(' ')[1];
+      const auth = await authenticateToken(token);
+      
+      if (auth.error) {
+        return res.status(auth.status).json({ error: auth.error });
+      }
+
       return res.json({ user: auth.user });
     }
 
@@ -173,6 +173,15 @@ module.exports = async (req, res) => {
       }
       
       if (method === 'POST') {
+        // Verificar autenticação para POST
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        const auth = await authenticateToken(token);
+        
+        if (auth.error) {
+          return res.status(auth.status).json({ error: auth.error });
+        }
+
         console.log('Criando técnico...');
         const { nome, telefone } = req.body;
         console.log('Dados recebidos:', { nome, telefone });
@@ -207,6 +216,8 @@ module.exports = async (req, res) => {
       const id = path.split('/')[2];
       
       if (method === 'GET') {
+        // GET público - buscar técnico por ID sem autenticação
+        console.log('Buscando técnico por ID (acesso público):', id);
         const { data: tecnico, error } = await supabase
           .from('tecnicos')
           .select('*')
@@ -221,6 +232,15 @@ module.exports = async (req, res) => {
       }
       
       if (method === 'PUT') {
+        // Verificar autenticação para PUT
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        const auth = await authenticateToken(token);
+        
+        if (auth.error) {
+          return res.status(auth.status).json({ error: auth.error });
+        }
+
         const { nome, telefone, ativo } = req.body;
         
         if (!nome || !telefone) {
@@ -246,14 +266,32 @@ module.exports = async (req, res) => {
       }
       
       if (method === 'DELETE') {
-        const { error } = await supabase
+        // Verificar autenticação para DELETE
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        const auth = await authenticateToken(token);
+        
+        if (auth.error) {
+          return res.status(auth.status).json({ error: auth.error });
+        }
+
+        console.log('Deletando técnico ID:', id);
+        
+        const { data, error, count } = await supabase
           .from('tecnicos')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .select();
         
         if (error) {
           console.error('Erro ao deletar técnico:', error);
           return res.status(500).json({ error: 'Erro ao deletar técnico' });
+        }
+        
+        console.log('Resultado do delete:', { data, count });
+        
+        if (!data || data.length === 0) {
+          return res.status(404).json({ error: 'Técnico não encontrado' });
         }
         
         return res.json({ message: 'Técnico deletado com sucesso' });
