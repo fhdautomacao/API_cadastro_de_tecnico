@@ -33,8 +33,8 @@ const authenticateToken = async (token) => {
       return { error: 'Token inválido', status: 403 };
     }
 
-    console.log('Autenticação bem-sucedida para:', user.email);
-    return { user };
+          console.log('Autenticação bem-sucedida para:', user.email);
+      return { user, token };
   } catch (err) {
     console.log('Erro na autenticação (catch):', err.message);
     return { error: 'Token inválido', status: 403 };
@@ -113,7 +113,20 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
       }
       
-      const { data: tecnico, error } = await supabase
+      // Criar cliente Supabase com o token do usuário autenticado
+      const supabaseWithAuth = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_ANON_KEY,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${auth.token}`
+            }
+          }
+        }
+      );
+
+      const { data: tecnico, error } = await supabaseWithAuth
         .from('tecnicos')
         .insert([{ nome, telefone }])
         .select()
