@@ -8,19 +8,35 @@ const supabase = createClient(
 
 // Middleware de autenticação
 const authenticateToken = async (token) => {
+  console.log('=== AUTHENTICATE TOKEN ===');
+  console.log('Token recebido:', !!token);
+  console.log('Token length:', token?.length || 0);
+  
   if (!token) {
+    console.log('Erro: Token não fornecido');
     return { error: 'Token de acesso requerido', status: 401 };
   }
 
   try {
+    console.log('Chamando supabase.auth.getUser...');
     const { data: { user }, error } = await supabase.auth.getUser(token);
     
+    console.log('Resposta do Supabase:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      userEmail: user?.email,
+      error: error?.message 
+    });
+    
     if (error || !user) {
+      console.log('Erro na validação do token:', error?.message || 'Usuário não encontrado');
       return { error: 'Token inválido', status: 403 };
     }
 
+    console.log('Autenticação bem-sucedida para:', user.email);
     return { user };
   } catch (err) {
+    console.log('Erro na autenticação (catch):', err.message);
     return { error: 'Token inválido', status: 403 };
   }
 };
@@ -70,12 +86,23 @@ module.exports = async (req, res) => {
 
     if (method === 'POST') {
       // Verificar autenticação para POST
-      const authHeader = req.headers['authorization'];
+      console.log('=== POST TECNICOS ===');
+      console.log('Headers recebidos:', JSON.stringify(req.headers, null, 2));
+      
+      const authHeader = req.headers['authorization'] || req.headers['Authorization'];
       const token = authHeader && authHeader.split(' ')[1];
+      
+      console.log('Auth header:', !!authHeader);
+      console.log('Token extraído:', !!token);
+      console.log('Token length:', token?.length || 0);
+      
       const auth = await authenticateToken(token);
       
+      console.log('Resultado auth:', { error: auth.error, hasUser: !!auth.user });
+      
       if (auth.error) {
-        return res.status(auth.status).json({ error: auth.error });
+        console.log('Erro de autenticação:', auth.error);
+        return res.status(auth.status).json({ error: auth.error, debug: { hasToken: !!token, authHeader: !!authHeader } });
       }
 
       console.log('Criando técnico...');

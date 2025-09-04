@@ -14,8 +14,19 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  const authHeader = req.headers['authorization'];
+  // LOG DETALHADO DOS HEADERS
+  console.log('=== DEBUG AUTH ===');
+  console.log('Method:', req.method);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Authorization header:', req.headers['authorization']);
+  console.log('Authorization header (lowercase):', req.headers['Authorization']);
+
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
   const token = authHeader && authHeader.split(' ')[1];
+  
+  console.log('Auth header found:', !!authHeader);
+  console.log('Token extracted:', !!token);
+  console.log('Token length:', token?.length || 0);
 
   if (!token) {
     return res.json({
