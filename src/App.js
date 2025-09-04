@@ -337,6 +337,112 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Seção de Documentação da API */}
+      <div className="api-docs">
+        <div className="docs-header">
+          <h2>📚 Documentação da API</h2>
+          <p>Endpoints disponíveis para integração com o sistema de técnicos</p>
+        </div>
+
+        <div className="docs-grid">
+          <div className="doc-card">
+            <div className="doc-card-header">
+              <span className="http-method get">GET</span>
+              <h3>Listar Técnicos</h3>
+            </div>
+            <div className="doc-card-content">
+              <code className="endpoint">/api/tecnicos</code>
+              <p>Retorna lista de todos os técnicos cadastrados</p>
+              <div className="doc-example">
+                <strong>Resposta:</strong>
+                <pre>{`[
+  {
+    "id": 1,
+    "nome": "João Silva",
+    "telefone": "11999999999",
+    "ativo": true
+  }
+]`}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div className="doc-card">
+            <div className="doc-card-header">
+              <span className="http-method get">GET</span>
+              <h3>Verificar Técnico</h3>
+            </div>
+            <div className="doc-card-content">
+              <code className="endpoint">/api/verificar-tecnico/:telefone</code>
+              <p>Verifica se um técnico está autorizado pelo telefone</p>
+              <div className="doc-example">
+                <strong>Exemplo:</strong>
+                <code className="example-url">GET /api/verificar-tecnico/11999999999</code>
+                <br/><br/>
+                <strong>Resposta:</strong>
+                <pre>{`{
+  "autorizado": true,
+  "message": "Acesso liberado!",
+  "tecnico": {
+    "nome": "João Silva",
+    "telefone": "11999999999"
+  }
+}`}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div className="doc-card">
+            <div className="doc-card-header">
+              <span className="http-method post">POST</span>
+              <h3>Autenticação</h3>
+            </div>
+            <div className="doc-card-content">
+              <code className="endpoint">/api/auth/login</code>
+              <p>Realiza login no sistema (requer autenticação para CRUD)</p>
+              <div className="doc-example">
+                <strong>Body:</strong>
+                <pre>{`{
+  "email": "admin@admin.com",
+  "password": "senha"
+}`}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div className="doc-card">
+            <div className="doc-card-header">
+              <span className="http-method info">INFO</span>
+              <h3>CORS & Segurança</h3>
+            </div>
+            <div className="doc-card-content">
+              <p><strong>🔓 API Pública:</strong> Apenas operações GET</p>
+              <p><strong>🔒 Frontend:</strong> CRUD completo com autenticação</p>
+              <p><strong>🛡️ Proteção:</strong> Row Level Security (RLS)</p>
+              <div className="cors-info">
+                <strong>Origens permitidas:</strong>
+                <ul>
+                  <li>✅ Leitura: Qualquer origem</li>
+                  <li>🔐 Escrita: Apenas este frontend</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="docs-footer">
+          <div className="tech-stack">
+            <h4>🚀 Stack Tecnológico</h4>
+            <div className="tech-badges">
+              <span className="tech-badge react">React</span>
+              <span className="tech-badge node">Node.js</span>
+              <span className="tech-badge supabase">Supabase</span>
+              <span className="tech-badge vercel">Vercel</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

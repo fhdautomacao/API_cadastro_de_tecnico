@@ -111,7 +111,7 @@ module.exports = async (req, res) => {
             nome: tecnico.nome, 
             telefone: tecnico.telefone
           },
-          message: `✅ Acesso liberado! Olá ${tecnico.nome}, você está autorizado a usar o chatbot.`,
+          message: "Acesso liberado!",
           status: 200
         });
       } else {
