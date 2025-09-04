@@ -1,13 +1,6 @@
-const { Pool } = require('pg');
 const { createClient } = require('@supabase/supabase-js');
 
-// Configurar conexão com PostgreSQL (Supabase)
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-// Configurar cliente Supabase para autenticação
+// Configurar cliente Supabase (para autenticação e banco de dados)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
@@ -51,6 +44,26 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Parse JSON body para requests POST/PUT
+  if (req.method === 'POST' || req.method === 'PUT') {
+    if (!req.body && req.headers['content-type']?.includes('application/json')) {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      await new Promise(resolve => {
+        req.on('end', () => {
+          try {
+            req.body = JSON.parse(body);
+          } catch (e) {
+            req.body = {};
+          }
+          resolve();
+        });
+      });
+    }
+  }
+
   const { method, url } = req;
   const path = url.replace('/api', '');
 
@@ -59,13 +72,23 @@ module.exports = async (req, res) => {
     if (method === 'GET' && path.startsWith('/verificar-tecnico/')) {
       const telefone = path.split('/')[2];
       
-      const result = await pool.query(
-        'SELECT * FROM tecnicos WHERE telefone = $1 AND ativo = true',
-        [telefone]
-      );
+      const { data: tecnicos, error } = await supabase
+        .from('tecnicos')
+        .select('*')
+        .eq('telefone', telefone)
+        .eq('ativo', true);
       
-      if (result.rows.length > 0) {
-        const tecnico = result.rows[0];
+      if (error) {
+        console.error('Erro ao verificar técnico:', error);
+        return res.status(500).json({ 
+          error: 'Erro interno do servidor',
+          message: '⚠️ Erro temporário no sistema. Tente novamente em alguns instantes.',
+          status: 500
+        });
+      }
+      
+      if (tecnicos && tecnicos.length > 0) {
+        const tecnico = tecnicos[0];
         return res.status(200).json({ 
           autorizado: true, 
           tecnico: { 
@@ -134,24 +157,47 @@ module.exports = async (req, res) => {
     // CRUD de técnicos
     if (path === '/tecnicos') {
       if (method === 'GET') {
-        const result = await pool.query('SELECT * FROM tecnicos ORDER BY data_criacao DESC');
-        return res.json(result.rows);
+        console.log('Buscando técnicos...');
+        const { data: tecnicos, error } = await supabase
+          .from('tecnicos')
+          .select('*')
+          .order('data_criacao', { ascending: false });
+        
+        if (error) {
+          console.error('Erro ao buscar técnicos:', error);
+          return res.status(500).json({ error: 'Erro ao buscar técnicos' });
+        }
+        
+        console.log('Técnicos encontrados:', tecnicos?.length || 0);
+        return res.json(tecnicos || []);
       }
       
       if (method === 'POST') {
+        console.log('Criando técnico...');
         const { nome, telefone } = req.body;
+        console.log('Dados recebidos:', { nome, telefone });
         
         if (!nome || !telefone) {
           return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
         }
         
-        const result = await pool.query(
-          'INSERT INTO tecnicos (nome, telefone) VALUES ($1, $2) RETURNING *',
-          [nome, telefone]
-        );
+        const { data: tecnico, error } = await supabase
+          .from('tecnicos')
+          .insert([{ nome, telefone }])
+          .select()
+          .single();
         
+        if (error) {
+          console.error('Erro ao criar técnico:', error);
+          if (error.code === '23505') { // Unique violation
+            return res.status(409).json({ error: 'Telefone já cadastrado' });
+          }
+          return res.status(500).json({ error: 'Erro ao criar técnico' });
+        }
+        
+        console.log('Técnico criado:', tecnico);
         return res.status(201).json({ 
-          ...result.rows[0], 
+          ...tecnico, 
           message: 'Técnico criado com sucesso' 
         });
       }
@@ -161,13 +207,17 @@ module.exports = async (req, res) => {
       const id = path.split('/')[2];
       
       if (method === 'GET') {
-        const result = await pool.query('SELECT * FROM tecnicos WHERE id = $1', [id]);
+        const { data: tecnico, error } = await supabase
+          .from('tecnicos')
+          .select('*')
+          .eq('id', id)
+          .single();
         
-        if (result.rows.length === 0) {
+        if (error || !tecnico) {
           return res.status(404).json({ error: 'Técnico não encontrado' });
         }
         
-        return res.json(result.rows[0]);
+        return res.json(tecnico);
       }
       
       if (method === 'PUT') {
@@ -177,12 +227,18 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
         }
         
-        const result = await pool.query(
-          'UPDATE tecnicos SET nome = $1, telefone = $2, ativo = $3 WHERE id = $4 RETURNING *',
-          [nome, telefone, ativo !== undefined ? ativo : true, id]
-        );
+        const { data: tecnico, error } = await supabase
+          .from('tecnicos')
+          .update({ nome, telefone, ativo: ativo !== undefined ? ativo : true })
+          .eq('id', id)
+          .select()
+          .single();
         
-        if (result.rows.length === 0) {
+        if (error || !tecnico) {
+          console.error('Erro ao atualizar técnico:', error);
+          if (error?.code === '23505') { // Unique violation
+            return res.status(409).json({ error: 'Telefone já cadastrado' });
+          }
           return res.status(404).json({ error: 'Técnico não encontrado' });
         }
         
@@ -190,10 +246,14 @@ module.exports = async (req, res) => {
       }
       
       if (method === 'DELETE') {
-        const result = await pool.query('DELETE FROM tecnicos WHERE id = $1', [id]);
+        const { error } = await supabase
+          .from('tecnicos')
+          .delete()
+          .eq('id', id);
         
-        if (result.rowCount === 0) {
-          return res.status(404).json({ error: 'Técnico não encontrado' });
+        if (error) {
+          console.error('Erro ao deletar técnico:', error);
+          return res.status(500).json({ error: 'Erro ao deletar técnico' });
         }
         
         return res.json({ message: 'Técnico deletado com sucesso' });

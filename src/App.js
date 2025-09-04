@@ -30,13 +30,25 @@ function App() {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/tecnicos`);
-      setTecnicos(response.data);
+      
+      // Verificar se a resposta é um array
+      if (Array.isArray(response.data)) {
+        setTecnicos(response.data);
+      } else {
+        console.error('API retornou dados não esperados:', response.data);
+        setTecnicos([]);
+        mostrarAlerta('Dados inválidos recebidos da API', 'danger');
+      }
     } catch (error) {
+      console.error('Erro ao carregar técnicos:', error);
+      setTecnicos([]);
+      
       if (error.response?.status === 401) {
         mostrarAlerta('Sessão expirada. Faça login novamente.', 'danger');
         logout();
       } else {
-        mostrarAlerta('Erro ao carregar técnicos', 'danger');
+        const message = error.response?.data?.error || 'Erro ao carregar técnicos';
+        mostrarAlerta(message, 'danger');
       }
     } finally {
       setLoading(false);
