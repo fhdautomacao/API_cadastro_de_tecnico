@@ -264,11 +264,14 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
   res.json({ user: req.user });
 });
 
-// A Vercel serve os arquivos estáticos do frontend
+// A Vercel serve os arquivos estáticos do React automaticamente
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+// Para desenvolvimento local
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+  });
+}
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
@@ -281,3 +284,6 @@ process.on('SIGINT', async () => {
     process.exit(1);
   }
 });
+
+// Exportar o app para a Vercel
+module.exports = app;
