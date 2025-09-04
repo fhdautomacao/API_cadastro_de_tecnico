@@ -19,7 +19,7 @@ const authenticateToken = async (token) => {
       return { error: 'Token inválido', status: 403 };
     }
 
-    return { user };
+    return { user, token };
   } catch (err) {
     return { error: 'Token inválido', status: 403 };
   }
@@ -190,7 +190,20 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
         }
         
-        const { data: tecnico, error } = await supabase
+        // Criar cliente autenticado para o INSERT
+        const supabaseWithAuth = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_ANON_KEY,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${auth.token}`
+              }
+            }
+          }
+        );
+
+        const { data: tecnico, error } = await supabaseWithAuth
           .from('tecnicos')
           .insert([{ nome, telefone }])
           .select()
@@ -247,7 +260,20 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
         }
         
-        const { data: tecnico, error } = await supabase
+        // Criar cliente autenticado para o UPDATE
+        const supabaseWithAuth = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_ANON_KEY,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${auth.token}`
+              }
+            }
+          }
+        );
+
+        const { data: tecnico, error } = await supabaseWithAuth
           .from('tecnicos')
           .update({ nome, telefone, ativo: ativo !== undefined ? ativo : true })
           .eq('id', id)
@@ -275,9 +301,43 @@ module.exports = async (req, res) => {
           return res.status(auth.status).json({ error: auth.error });
         }
 
+        console.log('=== DELETE TÉCNICO ===');
+        console.log('URL completa:', req.url);
+        console.log('Path extraído:', path);
+        console.log('ID extraído:', id);
+        console.log('Tipo do ID:', typeof id);
+        
+        // Primeiro, verificar se o técnico existe
+        const { data: existingTecnico, error: findError } = await supabase
+          .from('tecnicos')
+          .select('*')
+          .eq('id', id)
+          .single();
+          
+        console.log('Técnico encontrado:', existingTecnico);
+        console.log('Erro na busca:', findError);
+        
+        if (findError || !existingTecnico) {
+          console.log('Técnico não encontrado para deleção');
+          return res.status(404).json({ error: 'Técnico não encontrado' });
+        }
+
+        // Criar cliente autenticado para o DELETE
+        const supabaseWithAuth = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_ANON_KEY,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${auth.token}`
+              }
+            }
+          }
+        );
+
         console.log('Deletando técnico ID:', id);
         
-        const { data, error, count } = await supabase
+        const { data, error, count } = await supabaseWithAuth
           .from('tecnicos')
           .delete()
           .eq('id', id)
